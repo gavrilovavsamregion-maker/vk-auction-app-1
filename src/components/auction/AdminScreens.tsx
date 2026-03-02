@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
+import bridge from "@vkontakte/vk-bridge";
 import Icon from "@/components/ui/icon";
 import type { Lot } from "@/types/auction";
 import { AdminLotCard } from "@/components/auction/AdminLotCard";
 export { AdminLotForm } from "@/components/auction/AdminLotForm";
 
 const TRACK_URL = "https://functions.poehali.dev/e8bd7a1d-ec16-415b-ade0-2d0e35b9ba7e";
+const WIDGET_URL = "https://functions.poehali.dev/f4e406ad-f9d7-4701-a9bf-7f93b9c2c96f";
 
 type VisitorEntry = { vkUserId: string; userName: string; visitedAt: string };
 type VisitorsData = { totalUnique: number; todayUnique: number; recent: VisitorEntry[] };
@@ -66,6 +68,8 @@ export function AdminScreen({ lots, onEditLot, onNewLot, onUpdateStatus, onStopL
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [visitors, setVisitors] = useState<VisitorsData | null>(null);
   const [showVisitors, setShowVisitors] = useState(false);
+  const [widgetStatus, setWidgetStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
+  const [widgetError, setWidgetError] = useState("");
 
   useEffect(() => {
     if (!adminId) return;
@@ -77,6 +81,44 @@ export function AdminScreen({ lots, onEditLot, onNewLot, onUpdateStatus, onStopL
       })
       .catch(() => {});
   }, [adminId]);
+
+  async function updateWidget() {
+    setWidgetStatus("loading");
+    setWidgetError("");
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const groupId = params.get("vk_group_id");
+      if (!groupId) {
+        setWidgetError("Откройте приложение через сообщество ВКонтакте");
+        setWidgetStatus("error");
+        return;
+      }
+      const tokenRes = await bridge.send("VKWebAppGetCommunityAuthToken", {
+        app_id: 54464410,
+        group_id: Number(groupId),
+        scope: "app_widget",
+      });
+      const token = tokenRes.access_token;
+      const res = await fetch(WIDGET_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ communityToken: token, groupId }),
+      });
+      const data = await res.json();
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+      if (parsed.ok) {
+        setWidgetStatus("ok");
+        setTimeout(() => setWidgetStatus("idle"), 3000);
+      } else {
+        setWidgetError(parsed.error || "Ошибка VK API");
+        setWidgetStatus("error");
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setWidgetError(msg.includes("User denied") ? "Вы отклонили запрос токена" : msg);
+      setWidgetStatus("error");
+    }
+  }
 
   function downloadCSV() {
     const rows = [["Лот", "Победитель", "Цена", "Статус оплаты"]];
@@ -146,6 +188,21 @@ export function AdminScreen({ lots, onEditLot, onNewLot, onUpdateStatus, onStopL
           <Icon name="Download" size={15} />
           Экспорт результатов CSV
         </button>
+
+        {/* Widget update */}
+        <div className="flex flex-col gap-1">
+          <button
+            onClick={updateWidget}
+            disabled={widgetStatus === "loading"}
+            className="w-full flex items-center justify-center gap-2 border border-[#2787F5] bg-white rounded-xl py-2.5 text-sm font-medium text-[#2787F5] disabled:opacity-50"
+          >
+            <Icon name={widgetStatus === "ok" ? "Check" : "LayoutGrid"} size={15} />
+            {widgetStatus === "loading" ? "Обновляем виджет..." : widgetStatus === "ok" ? "Виджет обновлён!" : "Обновить виджет сообщества"}
+          </button>
+          {widgetStatus === "error" && (
+            <p className="text-xs text-red-500 text-center">{widgetError}</p>
+          )}
+        </div>
 
         {/* Lot list */}
         {lots.map((lot) => (
