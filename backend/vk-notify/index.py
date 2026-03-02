@@ -24,7 +24,13 @@ def handler(event: dict, context) -> dict:
         return {"statusCode": 405, "headers": CORS, "body": json.dumps({"error": "method not allowed"})}
 
     body = json.loads(event.get("body") or "{}")
-    user_id = str(body.get("userId", "")).strip().lstrip("id")
+    raw_id = str(body.get("userId", "")).strip()
+    if raw_id.startswith("id") and raw_id[2:].isdigit():
+        user_id = raw_id[2:]
+    elif raw_id.isdigit():
+        user_id = raw_id
+    else:
+        return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": f"Cannot resolve numeric VK id from: {raw_id}"})}
     message = str(body.get("message", "")).strip()
 
     if not user_id or not message:
