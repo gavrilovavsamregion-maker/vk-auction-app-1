@@ -1,38 +1,34 @@
 import { useState } from "react";
-import bridge from "@vkontakte/vk-bridge";
 import Icon from "@/components/ui/icon";
 import type { Lot } from "@/types/auction";
 import { formatPrice } from "@/components/auction/LotScreens";
 
 const OUR_COMMUNITY = "joywood_store";
 const OUR_PHONE = "+79277760036";
+const NOTIFY_URL = "https://functions.poehali.dev/cb824367-14f6-4e88-9949-4b6d466a4fb3";
 
 function ContactWinnerModal({ lot, onClose }: { lot: Lot; onClose: () => void }) {
   const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
 
   async function sendVKNotification() {
+    if (!lot.winnerId) { setNotifStatus("error"); return; }
     setNotifStatus("loading");
     try {
-      const params = new URLSearchParams(window.location.search);
-      const groupId = params.get("vk_group_id");
-      if (!groupId || !lot.winnerId) { setNotifStatus("error"); return; }
-      const tokenRes = await bridge.send("VKWebAppGetCommunityAuthToken", {
-        app_id: 54464410,
-        group_id: Number(groupId),
-        scope: "notifications",
-      });
-      await bridge.send("VKWebAppCallAPIMethod", {
-        method: "notifications.sendMessage",
-        params: {
-          user_ids: lot.winnerId,
+      const res = await fetch(NOTIFY_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: lot.winnerId,
           message: `🏆 Поздравляем! Вы выиграли лот «${lot.title}» за ${formatPrice(lot.currentPrice)}. Для получения заказа свяжитесь с нами: напишите в сообщество vk.com/${OUR_COMMUNITY} или позвоните ${OUR_PHONE}`,
-          fragment: "auction",
-          group_id: groupId,
-          v: "5.131",
-          access_token: tokenRes.access_token,
-        },
+        }),
       });
-      setNotifStatus("ok");
+      const data = await res.json();
+      const parsed = typeof data === "string" ? JSON.parse(data) : data;
+      if (parsed.ok) {
+        setNotifStatus("ok");
+      } else {
+        setNotifStatus("error");
+      }
     } catch {
       setNotifStatus("error");
     }
