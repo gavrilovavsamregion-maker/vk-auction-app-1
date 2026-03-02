@@ -77,6 +77,10 @@ def build_widget(rows, app_id):
             "button_url": app_url,
             "text": f"{format_price(current_price)} · {bid_count} ставок · {time_left(ends_at)}",
         }
+        if image:
+            item["images"] = [
+                {"url": image, "width": 200, "height": 200},
+            ]
         rows_out.append(item)
 
     return {
