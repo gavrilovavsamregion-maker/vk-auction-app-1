@@ -83,6 +83,15 @@ def build_widget(rows, app_id):
             ]
         rows_out.append(item)
 
+    if not rows_out:
+        rows_out = [{
+            "title": "Скоро новые торги",
+            "title_url": app_url,
+            "button": "Открыть",
+            "button_url": app_url,
+            "text": "Следите за обновлениями сообщества",
+        }]
+
     return {
         "type": "list",
         "title": "🔨 Аукционы сообщества",
@@ -112,8 +121,6 @@ def handler(event: dict, context) -> dict:
             return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "communityToken and groupId required"})}
 
         rows = get_widget_data(schema)
-        if not rows:
-            return {"statusCode": 400, "headers": CORS, "body": json.dumps({"error": "Нет активных лотов для виджета. Создайте хотя бы один активный лот."})}
         widget = build_widget(rows, app_id)
         widget_code = json.dumps(widget, ensure_ascii=False)
 
