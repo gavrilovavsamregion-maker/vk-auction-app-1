@@ -12,12 +12,14 @@ export { parseVKVideoEmbed } from "@/components/auction/LotMedia";
 export { BidModal, AutoBidModal } from "@/components/auction/LotModals";
 
 // ─── Screen: Lot ───────────────────────────────────────────────────────────────
-export function LotScreen({ lot, user, onBack, onBid, onAutoBid }: {
+export function LotScreen({ lot, user, onBack, onBid, onAutoBid, notificationsDeclined, onEnableNotifications }: {
   lot: Lot;
   user: User;
   onBack: () => void;
   onBid: (lotId: string, amount: number) => Promise<string>;
   onAutoBid: (lotId: string, maxAmount: number) => Promise<string>;
+  notificationsDeclined?: boolean;
+  onEnableNotifications?: () => void;
 }) {
   const [showBidModal, setShowBidModal] = useState(false);
   const [showAutoBidModal, setShowAutoBidModal] = useState(false);
@@ -55,6 +57,20 @@ export function LotScreen({ lot, user, onBack, onBid, onAutoBid }: {
   return (
     <div className="flex flex-col h-full">
       <LotMedia lot={lot} isActive={isActive} isUpcoming={isUpcoming} onBack={onBack} />
+
+      {notificationsDeclined && user.id !== "guest" && (
+        <button
+          onClick={onEnableNotifications}
+          className="shrink-0 flex items-center gap-2 px-4 py-2 text-left w-full"
+          style={{ background: "#FFF8E7", borderBottom: "1px solid #F0E4B8" }}
+        >
+          <Icon name="BellOff" size={14} className="text-[#B8922A] shrink-0" />
+          <p className="text-[12px] text-[#B8922A] flex-1 leading-tight">
+            Уведомления отключены — вы можете пропустить, когда вас перебьют.
+          </p>
+          <span className="text-[11px] font-semibold text-[#B8922A] shrink-0 underline decoration-dotted">Включить</span>
+        </button>
+      )}
 
       <div className="flex-1 overflow-y-auto">
         <LotInfo

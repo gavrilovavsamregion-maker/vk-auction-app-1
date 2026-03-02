@@ -22,7 +22,7 @@ export function LoadingScreen() {
 }
 
 export function MobileShell() {
-  const { screen, setScreen, lots, activeLot, editingLot, editingLotId, setEditingLotId, loading, user, vkUser, goLot, handleBid, handleAutoBid, handleSaveLot, handleUpdateStatus, handleStopLot, handleDeleteLot, loadLots } = useAuction();
+  const { screen, setScreen, lots, activeLot, editingLot, editingLotId, setEditingLotId, loading, user, vkUser, goLot, handleBid, handleAutoBid, handleSaveLot, handleUpdateStatus, handleStopLot, handleDeleteLot, loadLots, notificationsDeclined, requestNotificationPermission } = useAuction();
 
   if (vkUser.isLoading) return <LoadingScreen />;
 
@@ -72,6 +72,8 @@ export function MobileShell() {
                   onBack={() => { setScreen("catalog"); loadLots(); }}
                   onBid={handleBid}
                   onAutoBid={handleAutoBid}
+                  notificationsDeclined={notificationsDeclined}
+                  onEnableNotifications={requestNotificationPermission}
                 />
               )}
               {screen === "lot" && !activeLot && (

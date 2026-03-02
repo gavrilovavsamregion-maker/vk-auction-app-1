@@ -12,6 +12,7 @@ export function useAuction() {
   const [loading, setLoading] = useState(true);
   const notifiedLots = useRef<Set<string>>(new Set());
   const notificationsRequested = useRef(false);
+  const [notificationsDeclined, setNotificationsDeclined] = useState(false);
   const vkUser = useVKUser();
   const vkUserId = vkUser.id;
 
@@ -124,8 +125,9 @@ export function useAuction() {
       if (!groupId) return;
       await bridge.send("VKWebAppAllowMessagesFromGroup", { group_id: groupId });
       await apiAllowNotifications(vkUser.id);
+      setNotificationsDeclined(false);
     } catch {
-      // пользователь отказался — ничего страшного
+      setNotificationsDeclined(true);
     }
   }
 
@@ -235,5 +237,7 @@ export function useAuction() {
     handleStopLot,
     handleDeleteLot,
     loadLots,
+    notificationsDeclined,
+    requestNotificationPermission,
   };
 }
