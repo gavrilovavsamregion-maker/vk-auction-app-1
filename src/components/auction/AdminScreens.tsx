@@ -189,18 +189,76 @@ export function AdminScreen({ lots, onEditLot, onNewLot, onUpdateStatus, onStopL
           Экспорт результатов CSV
         </button>
 
-        {/* Widget update */}
-        <div className="flex flex-col gap-1">
-          <button
-            onClick={updateWidget}
-            disabled={widgetStatus === "loading"}
-            className="w-full flex items-center justify-center gap-2 border border-[#2787F5] bg-white rounded-xl py-2.5 text-sm font-medium text-[#2787F5] disabled:opacity-50"
-          >
-            <Icon name={widgetStatus === "ok" ? "Check" : "LayoutGrid"} size={15} />
-            {widgetStatus === "loading" ? "Обновляем виджет..." : widgetStatus === "ok" ? "Виджет обновлён!" : "Обновить виджет сообщества"}
-          </button>
+        {/* Widget block */}
+        <div className="border border-[#E0E0E0] bg-white rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#F0EDE8]">
+            <div className="flex items-center gap-2">
+              <Icon name="LayoutGrid" size={14} className="text-[#2787F5]" />
+              <span className="text-[13px] font-semibold text-[#1C1C1E]">Виджет сообщества</span>
+            </div>
+            <button
+              onClick={updateWidget}
+              disabled={widgetStatus === "loading"}
+              className="flex items-center gap-1 bg-[#2787F5] text-white rounded-lg px-2.5 py-1 text-[12px] font-medium disabled:opacity-50"
+            >
+              <Icon name={widgetStatus === "ok" ? "Check" : "RefreshCw"} size={11} />
+              {widgetStatus === "loading" ? "Обновляем..." : widgetStatus === "ok" ? "Обновлено!" : "Обновить"}
+            </button>
+          </div>
+
+          {/* VK widget preview */}
+          <div className="px-3 py-2.5">
+            <p className="text-[10px] text-[#B0A080] uppercase tracking-wide mb-2">Так выглядит в сообществе ВКонтакте</p>
+
+            {/* VK-style widget mockup */}
+            <div className="bg-[#F5F5F5] rounded-lg p-2.5 border border-[#E0E0E0]">
+              {/* Widget title row */}
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[13px] font-semibold text-[#2C2D2E]">🔨 Аукционы сообщества</span>
+                <span className="text-[11px] text-[#2787F5]">Все</span>
+              </div>
+
+              {/* Lot rows */}
+              {lots.filter(l => l.status === "active" || l.status === "upcoming").slice(0, 6).length === 0 ? (
+                <p className="text-[12px] text-[#767676] text-center py-3">Нет активных лотов</p>
+              ) : (
+                <div className="space-y-1.5">
+                  {lots.filter(l => l.status === "active" || l.status === "upcoming").slice(0, 6).map(lot => {
+                    const now = new Date();
+                    const diff = Math.max(0, lot.endsAt.getTime() - now.getTime());
+                    const h = Math.floor(diff / 3600000);
+                    const m = Math.floor((diff % 3600000) / 60000);
+                    const timeStr = diff === 0 ? "Завершается" : h > 0 ? `Осталось ${h}ч ${m}м` : `Осталось ${m}м`;
+                    const bids = lot.bidCount ?? lot.bids.length;
+                    return (
+                      <div key={lot.id} className="flex items-center gap-2 bg-white rounded-md px-2 py-1.5">
+                        {lot.image ? (
+                          <img src={lot.image} alt="" className="w-8 h-8 rounded object-cover shrink-0" />
+                        ) : (
+                          <div className="w-8 h-8 rounded bg-[#E8E8E8] shrink-0 flex items-center justify-center">
+                            <Icon name="Package" size={14} className="text-[#AAAAAA]" />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[12px] font-medium text-[#2C2D2E] truncate">{lot.title}</p>
+                          <p className="text-[10px] text-[#767676] truncate">
+                            {lot.currentPrice.toLocaleString("ru-RU")} ₽ · {bids} ставок · {timeStr}
+                          </p>
+                        </div>
+                        <span className="text-[11px] text-[#2787F5] font-medium shrink-0">Участвовать</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <p className="text-[10px] text-[#B0A080] mt-1.5 text-center">Нажмите «Обновить» чтобы применить изменения в ВКонтакте</p>
+          </div>
+
           {widgetStatus === "error" && (
-            <p className="text-xs text-red-500 text-center">{widgetError}</p>
+            <p className="text-xs text-red-500 text-center px-3 pb-2.5">{widgetError}</p>
           )}
         </div>
 
