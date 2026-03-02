@@ -1,7 +1,115 @@
 import { useState } from "react";
+import bridge from "@vkontakte/vk-bridge";
 import Icon from "@/components/ui/icon";
 import type { Lot } from "@/types/auction";
 import { formatPrice } from "@/components/auction/LotScreens";
+
+const VK_GROUP_SCREEN_NAME = "joywood_store";
+const PHONE = "+79277760036";
+
+function ContactWinnerModal({ lot, onClose }: { lot: Lot; onClose: () => void }) {
+  const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
+
+  async function sendVKNotification() {
+    setNotifStatus("loading");
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const groupId = params.get("vk_group_id");
+      if (!groupId || !lot.winnerId) {
+        setNotifStatus("error");
+        return;
+      }
+      const tokenRes = await bridge.send("VKWebAppGetCommunityAuthToken", {
+        app_id: 54464410,
+        group_id: Number(groupId),
+        scope: "notifications",
+      });
+      await bridge.send("VKWebAppCallAPIMethod", {
+        method: "notifications.sendMessage",
+        params: {
+          user_ids: lot.winnerId,
+          message: `🏆 Поздравляем! Вы выиграли лот «${lot.title}» за ${formatPrice(lot.currentPrice)}. Напишите нам в сообщество или позвоните по номеру ${PHONE} для получения заказа.`,
+          fragment: "auction",
+          group_id: groupId,
+          v: "5.131",
+          access_token: tokenRes.access_token,
+        },
+      });
+      setNotifStatus("ok");
+    } catch {
+      setNotifStatus("error");
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onClose}>
+      <div
+        className="bg-white rounded-t-2xl w-full max-w-md overflow-hidden shadow-xl pb-safe"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[#E8E8E8]">
+          <p className="font-semibold text-[15px] text-[#1C1C1E]">Связаться с победителем</p>
+          <button onClick={onClose} className="text-[#767676]"><Icon name="X" size={18} /></button>
+        </div>
+
+        <div className="px-4 pt-3 pb-2">
+          <div className="flex items-center gap-2 bg-[#E8F5E9] rounded-xl px-3 py-2 mb-4">
+            <Icon name="Trophy" size={14} className="text-[#4CAF50] shrink-0" />
+            <span className="text-[13px] text-[#2E7D32]"><strong>{lot.winnerName}</strong> — {formatPrice(lot.currentPrice)}</span>
+          </div>
+
+          <div className="space-y-2.5">
+            <a
+              href={`https://vk.com/${VK_GROUP_SCREEN_NAME}?w=wall-${VK_GROUP_SCREEN_NAME}_0`}
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-3 bg-[#2787F5] text-white rounded-xl px-4 py-3 w-full"
+            >
+              <Icon name="MessageCircle" size={20} />
+              <div className="text-left">
+                <p className="text-[14px] font-semibold">Написать в сообщество</p>
+                <p className="text-[11px] opacity-80">Открыть диалог ВКонтакте</p>
+              </div>
+            </a>
+
+            <a
+              href={`tel:${PHONE}`}
+              className="flex items-center gap-3 bg-[#E8F5E9] text-[#2E7D32] rounded-xl px-4 py-3 w-full"
+            >
+              <Icon name="Phone" size={20} />
+              <div className="text-left">
+                <p className="text-[14px] font-semibold">Позвонить победителю</p>
+                <p className="text-[11px] opacity-70">{PHONE}</p>
+              </div>
+            </a>
+
+            <button
+              onClick={sendVKNotification}
+              disabled={notifStatus === "loading" || notifStatus === "ok"}
+              className="flex items-center gap-3 bg-[#F5F5F5] text-[#1C1C1E] rounded-xl px-4 py-3 w-full disabled:opacity-50"
+            >
+              <Icon name={notifStatus === "ok" ? "CheckCircle" : "Bell"} size={20} className={notifStatus === "ok" ? "text-[#4CAF50]" : "text-[#767676]"} />
+              <div className="text-left">
+                <p className="text-[14px] font-semibold">
+                  {notifStatus === "loading" ? "Отправляем..." : notifStatus === "ok" ? "Уведомление отправлено!" : "Уведомить в ВКонтакте"}
+                </p>
+                <p className="text-[11px] text-[#767676]">
+                  {notifStatus === "error" ? "Ошибка — попробуйте снова" : "Системное уведомление в приложении"}
+                </p>
+              </div>
+            </button>
+          </div>
+        </div>
+
+        <div className="px-4 py-3">
+          <p className="text-[11px] text-[#B0A0A0] text-center">
+            Победитель: <a href={`https://vk.com/id${lot.winnerId}`} target="_blank" rel="noreferrer" className="text-[#2787F5]">vk.com/id{lot.winnerId}</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const paymentLabels: Record<string, string> = {
   pending: "Ожидает", paid: "Оплачен", issued: "Выдан", cancelled: "Отменён",
@@ -23,7 +131,10 @@ export function AdminLotCard({ lot, expanded, onToggle, onEditLot, onUpdateStatu
   onDeleteLot: (id: string) => void;
 }) {
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showContact, setShowContact] = useState(false);
   return (
+    <>
+    {showContact && <ContactWinnerModal lot={lot} onClose={() => setShowContact(false)} />}
     <div className="bg-white border border-[#E8E8E8] rounded-2xl overflow-hidden">
       <div className="flex items-center gap-3 p-3 cursor-pointer" onClick={onToggle}>
         <img
@@ -58,10 +169,14 @@ export function AdminLotCard({ lot, expanded, onToggle, onEditLot, onUpdateStatu
       {expanded && (
         <div className="border-t border-[#F0F2F5] p-3 space-y-3">
           {lot.status === "finished" && lot.winnerName && (
-            <div className="bg-[#E8F5E9] rounded-xl p-2.5 flex items-center gap-2 text-sm">
+            <button
+              onClick={() => setShowContact(true)}
+              className="w-full bg-[#E8F5E9] rounded-xl p-2.5 flex items-center gap-2 text-sm"
+            >
               <Icon name="Trophy" size={14} className="text-[#4CAF50] shrink-0" />
-              <span className="text-[#2E7D32]">Победитель: <strong>{lot.winnerName}</strong> — {formatPrice(lot.currentPrice)}</span>
-            </div>
+              <span className="text-[#2E7D32] flex-1 text-left">Победитель: <strong>{lot.winnerName}</strong> — {formatPrice(lot.currentPrice)}</span>
+              <Icon name="Phone" size={14} className="text-[#4CAF50] shrink-0" />
+            </button>
           )}
 
           {lot.status === "finished" && (
@@ -144,5 +259,6 @@ export function AdminLotCard({ lot, expanded, onToggle, onEditLot, onUpdateStatu
         </div>
       )}
     </div>
+    </>
   );
 }
