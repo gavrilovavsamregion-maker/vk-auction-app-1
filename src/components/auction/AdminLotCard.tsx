@@ -4,8 +4,8 @@ import Icon from "@/components/ui/icon";
 import type { Lot } from "@/types/auction";
 import { formatPrice } from "@/components/auction/LotScreens";
 
-const VK_GROUP_SCREEN_NAME = "joywood_store";
-const PHONE = "+79277760036";
+const OUR_COMMUNITY = "joywood_store";
+const OUR_PHONE = "+79277760036";
 
 function ContactWinnerModal({ lot, onClose }: { lot: Lot; onClose: () => void }) {
   const [notifStatus, setNotifStatus] = useState<"idle" | "loading" | "ok" | "error">("idle");
@@ -15,10 +15,7 @@ function ContactWinnerModal({ lot, onClose }: { lot: Lot; onClose: () => void })
     try {
       const params = new URLSearchParams(window.location.search);
       const groupId = params.get("vk_group_id");
-      if (!groupId || !lot.winnerId) {
-        setNotifStatus("error");
-        return;
-      }
+      if (!groupId || !lot.winnerId) { setNotifStatus("error"); return; }
       const tokenRes = await bridge.send("VKWebAppGetCommunityAuthToken", {
         app_id: 54464410,
         group_id: Number(groupId),
@@ -28,7 +25,7 @@ function ContactWinnerModal({ lot, onClose }: { lot: Lot; onClose: () => void })
         method: "notifications.sendMessage",
         params: {
           user_ids: lot.winnerId,
-          message: `🏆 Поздравляем! Вы выиграли лот «${lot.title}» за ${formatPrice(lot.currentPrice)}. Напишите нам в сообщество или позвоните по номеру ${PHONE} для получения заказа.`,
+          message: `🏆 Поздравляем! Вы выиграли лот «${lot.title}» за ${formatPrice(lot.currentPrice)}. Для получения заказа свяжитесь с нами: напишите в сообщество vk.com/${OUR_COMMUNITY} или позвоните ${OUR_PHONE}`,
           fragment: "auction",
           group_id: groupId,
           v: "5.131",
@@ -43,67 +40,51 @@ function ContactWinnerModal({ lot, onClose }: { lot: Lot; onClose: () => void })
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40" onClick={onClose}>
-      <div
-        className="bg-white rounded-t-2xl w-full max-w-md overflow-hidden shadow-xl pb-safe"
-        onClick={(e) => e.stopPropagation()}
-      >
+      <div className="bg-white rounded-t-2xl w-full max-w-md overflow-hidden shadow-xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#E8E8E8]">
           <p className="font-semibold text-[15px] text-[#1C1C1E]">Связаться с победителем</p>
           <button onClick={onClose} className="text-[#767676]"><Icon name="X" size={18} /></button>
         </div>
 
-        <div className="px-4 pt-3 pb-2">
-          <div className="flex items-center gap-2 bg-[#E8F5E9] rounded-xl px-3 py-2 mb-4">
+        <div className="px-4 pt-3 pb-5 space-y-2.5">
+          <div className="flex items-center gap-2 bg-[#E8F5E9] rounded-xl px-3 py-2">
             <Icon name="Trophy" size={14} className="text-[#4CAF50] shrink-0" />
             <span className="text-[13px] text-[#2E7D32]"><strong>{lot.winnerName}</strong> — {formatPrice(lot.currentPrice)}</span>
           </div>
 
-          <div className="space-y-2.5">
-            <a
-              href={`https://vk.com/${VK_GROUP_SCREEN_NAME}?w=wall-${VK_GROUP_SCREEN_NAME}_0`}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-3 bg-[#2787F5] text-white rounded-xl px-4 py-3 w-full"
-            >
-              <Icon name="MessageCircle" size={20} />
-              <div className="text-left">
-                <p className="text-[14px] font-semibold">Написать в сообщество</p>
-                <p className="text-[11px] opacity-80">Открыть диалог ВКонтакте</p>
-              </div>
-            </a>
+          {/* Открыть профиль победителя */}
+          <a
+            href={`https://vk.com/id${lot.winnerId}`}
+            target="_blank"
+            rel="noreferrer"
+            className="flex items-center gap-3 bg-[#2787F5] text-white rounded-xl px-4 py-3 w-full"
+          >
+            <Icon name="User" size={20} />
+            <div className="text-left">
+              <p className="text-[14px] font-semibold">Открыть профиль ВКонтакте</p>
+              <p className="text-[11px] opacity-80">Попробовать написать напрямую</p>
+            </div>
+          </a>
 
-            <a
-              href={`tel:${PHONE}`}
-              className="flex items-center gap-3 bg-[#E8F5E9] text-[#2E7D32] rounded-xl px-4 py-3 w-full"
-            >
-              <Icon name="Phone" size={20} />
-              <div className="text-left">
-                <p className="text-[14px] font-semibold">Позвонить победителю</p>
-                <p className="text-[11px] opacity-70">{PHONE}</p>
-              </div>
-            </a>
+          {/* Уведомление победителю */}
+          <button
+            onClick={sendVKNotification}
+            disabled={notifStatus === "loading" || notifStatus === "ok"}
+            className="flex items-center gap-3 bg-[#F5F5F5] text-[#1C1C1E] rounded-xl px-4 py-3 w-full disabled:opacity-50"
+          >
+            <Icon name={notifStatus === "ok" ? "CheckCircle" : "Bell"} size={20} className={notifStatus === "ok" ? "text-[#4CAF50]" : "text-[#767676]"} />
+            <div className="text-left">
+              <p className="text-[14px] font-semibold">
+                {notifStatus === "loading" ? "Отправляем..." : notifStatus === "ok" ? "Уведомление отправлено!" : "Уведомить через ВКонтакте"}
+              </p>
+              <p className="text-[11px] text-[#767676]">
+                {notifStatus === "error" ? "Ошибка — попробуйте снова" : `Победитель получит: наш телефон и ссылку на сообщество`}
+              </p>
+            </div>
+          </button>
 
-            <button
-              onClick={sendVKNotification}
-              disabled={notifStatus === "loading" || notifStatus === "ok"}
-              className="flex items-center gap-3 bg-[#F5F5F5] text-[#1C1C1E] rounded-xl px-4 py-3 w-full disabled:opacity-50"
-            >
-              <Icon name={notifStatus === "ok" ? "CheckCircle" : "Bell"} size={20} className={notifStatus === "ok" ? "text-[#4CAF50]" : "text-[#767676]"} />
-              <div className="text-left">
-                <p className="text-[14px] font-semibold">
-                  {notifStatus === "loading" ? "Отправляем..." : notifStatus === "ok" ? "Уведомление отправлено!" : "Уведомить в ВКонтакте"}
-                </p>
-                <p className="text-[11px] text-[#767676]">
-                  {notifStatus === "error" ? "Ошибка — попробуйте снова" : "Системное уведомление в приложении"}
-                </p>
-              </div>
-            </button>
-          </div>
-        </div>
-
-        <div className="px-4 py-3">
-          <p className="text-[11px] text-[#B0A0A0] text-center">
-            Победитель: <a href={`https://vk.com/id${lot.winnerId}`} target="_blank" rel="noreferrer" className="text-[#2787F5]">vk.com/id{lot.winnerId}</a>
+          <p className="text-[11px] text-[#B0A0A0] text-center pt-1">
+            В уведомлении будут указаны {OUR_PHONE} и vk.com/{OUR_COMMUNITY}
           </p>
         </div>
       </div>
