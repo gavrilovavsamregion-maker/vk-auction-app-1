@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import bridge from "@vkontakte/vk-bridge";
 import { useVKUser } from "@/hooks/useVKUser";
 import type { Lot, User, Screen } from "@/types/auction";
-import { apiGetLots, apiGetLot, apiPlaceBid, apiSetAutoBid, apiAdmin, normalizeLot } from "@/api/auction";
+import { apiGetLots, apiGetLot, apiPlaceBid, apiSetAutoBid, apiAdmin, apiAllowNotifications, normalizeLot } from "@/api/auction";
 
 export function useAuction() {
   const [screen, setScreen] = useState<Screen>("catalog");
@@ -11,6 +11,7 @@ export function useAuction() {
   const [editingLotId, setEditingLotId] = useState<string | null | "new">(null);
   const [loading, setLoading] = useState(true);
   const notifiedLots = useRef<Set<string>>(new Set());
+  const notificationsRequested = useRef(false);
   const vkUser = useVKUser();
   const vkUserId = vkUser.id;
 
@@ -110,7 +111,26 @@ export function useAuction() {
     return () => clearTimeout(timerId);
   }, [screen, activeLot?.id, activeLot?.status, activeLot?.endsAt?.getTime()]);
 
+  async function requestNotificationPermission() {
+    if (notificationsRequested.current || vkUser.screenName === "guest") return;
+    notificationsRequested.current = true;
+    try {
+      const res = await bridge.send("VKWebAppCallAPIMethod", {
+        method: "groups.getById",
+        params: { group_id: "joywood_store", v: "5.131" },
+      }) as Record<string, unknown>;
+      const groups = res.response as Array<Record<string, unknown>>;
+      const groupId = Number(groups?.[0]?.id ?? 0);
+      if (!groupId) return;
+      await bridge.send("VKWebAppAllowMessagesFromGroup", { group_id: groupId });
+      await apiAllowNotifications(vkUser.id);
+    } catch {
+      // пользователь отказался — ничего страшного
+    }
+  }
+
   async function handleBid(lotId: string, amount: number): Promise<string> {
+    requestNotificationPermission();
     try {
       const res = await apiPlaceBid(Number(lotId), amount, user) as Record<string, unknown>;
       if (res.error) return String(res.error);

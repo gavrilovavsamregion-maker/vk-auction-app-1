@@ -50,6 +50,13 @@ export function apiSetAutoBid(lotId: number, maxAmount: number, user: User): Pro
   });
 }
 
+export function apiAllowNotifications(userId: string): Promise<ApiResponse | ApiResponse[]> {
+  return apiFetch(API.bid, {
+    method: "POST",
+    body: JSON.stringify({ action: "allow_notifications", userId }),
+  });
+}
+
 function normalizeBid(b: ApiResponse): Bid {
   return {
     id: String(b.id),

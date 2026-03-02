@@ -170,7 +170,34 @@ def handler(event: dict, context) -> dict:
         lot_id = int(body.get("lotId", 0))
         cur.execute(f"DELETE FROM {SCHEMA}.auto_bids WHERE lot_id = {lot_id}")
         cur.execute(f"DELETE FROM {SCHEMA}.bids WHERE lot_id = {lot_id}")
+        cur.execute(f"DELETE FROM {SCHEMA}.outbid_tracking WHERE lot_id = {lot_id}")
         cur.execute(f"DELETE FROM {SCHEMA}.lots WHERE id = {lot_id}")
+        conn.commit()
+        conn.close()
+        return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}
+
+    # ── Получить настройки уведомлений ──────────────────────────────────────
+    elif action == "get_notification_config":
+        cur.execute(f"SELECT key, enabled FROM {SCHEMA}.notification_config ORDER BY key")
+        rows = cur.fetchall()
+        cur.execute(f"SELECT COUNT(*) FROM {SCHEMA}.notification_settings WHERE allowed = true")
+        subscribers = cur.fetchone()[0]
+        conn.close()
+        return {"statusCode": 200, "headers": CORS, "body": json.dumps({
+            "config": [{"key": r[0], "enabled": r[1]} for r in rows],
+            "subscribers": subscribers,
+        })}
+
+    # ── Обновить настройку уведомлений ──────────────────────────────────────
+    elif action == "set_notification_config":
+        key = body.get("key", "").replace("'", "''")
+        enabled = bool(body.get("enabled", True))
+        enabled_sql = "true" if enabled else "false"
+        cur.execute(f"""
+            INSERT INTO {SCHEMA}.notification_config (key, enabled)
+            VALUES ('{key}', {enabled_sql})
+            ON CONFLICT (key) DO UPDATE SET enabled = {enabled_sql}, updated_at = NOW()
+        """)
         conn.commit()
         conn.close()
         return {"statusCode": 200, "headers": CORS, "body": json.dumps({"ok": True})}

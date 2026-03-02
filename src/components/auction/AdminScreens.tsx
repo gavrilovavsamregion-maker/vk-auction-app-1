@@ -7,6 +7,92 @@ export { AdminLotForm } from "@/components/auction/AdminLotForm";
 
 const TRACK_URL = "https://functions.poehali.dev/e8bd7a1d-ec16-415b-ade0-2d0e35b9ba7e";
 const WIDGET_URL = "https://functions.poehali.dev/f4e406ad-f9d7-4701-a9bf-7f93b9c2c96f";
+const ADMIN_URL = "https://functions.poehali.dev/c80458b7-040f-4c1e-afc7-9418aa34e00f";
+
+type NotifKey = "outbid" | "ending_15min" | "winner";
+type NotifConfig = { key: NotifKey; enabled: boolean };
+
+const NOTIF_LABELS: Record<NotifKey, { label: string; desc: string; icon: string }> = {
+  outbid: { label: "Перебили ставку", desc: "Когда участника перебивают и он остаётся не лидером 5+ мин", icon: "TrendingUp" },
+  ending_15min: { label: "Скоро конец аукциона", desc: "За ~15 минут до завершения всем участникам лота", icon: "Clock" },
+  winner: { label: "Победитель", desc: "Уведомление победителю после завершения лота", icon: "Trophy" },
+};
+
+function NotificationsPanel({ adminId }: { adminId?: string }) {
+  const [config, setConfig] = useState<NotifConfig[]>([]);
+  const [subscribers, setSubscribers] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!adminId) return;
+    fetch(ADMIN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "get_notification_config" }),
+    })
+      .then((r) => r.json())
+      .then((d) => {
+        setConfig(d.config ?? []);
+        setSubscribers(d.subscribers ?? 0);
+      })
+      .finally(() => setLoading(false));
+  }, [adminId]);
+
+  async function toggle(key: NotifKey, enabled: boolean) {
+    setSaving(key);
+    setConfig((prev) => prev.map((c) => c.key === key ? { ...c, enabled } : c));
+    await fetch(ADMIN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "set_notification_config", key, enabled }),
+    });
+    setSaving(null);
+  }
+
+  if (!adminId) return null;
+
+  return (
+    <div className="border border-[#E0E0E0] bg-white rounded-xl overflow-hidden">
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#F0EDE8]">
+        <div className="flex items-center gap-2">
+          <Icon name="Bell" size={14} className="text-[#C9A84C]" />
+          <span className="text-[13px] font-semibold text-[#1C1C1E]">Уведомления</span>
+        </div>
+        {subscribers !== null && (
+          <span className="text-[11px] text-[#767676]">{subscribers} подписчиков</span>
+        )}
+      </div>
+      {loading ? (
+        <div className="px-3 py-4 text-[12px] text-[#767676] text-center">Загрузка…</div>
+      ) : (
+        <div className="divide-y divide-[#F5F5F5]">
+          {config.map((c) => {
+            const meta = NOTIF_LABELS[c.key] ?? { label: c.key, desc: "", icon: "Bell" };
+            return (
+              <div key={c.key} className="flex items-center gap-3 px-3 py-2.5">
+                <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0" style={{ background: c.enabled ? "#FFF8E7" : "#F5F5F5" }}>
+                  <Icon name={meta.icon} size={14} className={c.enabled ? "text-[#C9A84C]" : "text-[#AAAAAA]"} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[12px] font-semibold text-[#1C1C1E]">{meta.label}</p>
+                  <p className="text-[10px] text-[#767676] leading-tight">{meta.desc}</p>
+                </div>
+                <button
+                  onClick={() => toggle(c.key, !c.enabled)}
+                  disabled={saving === c.key}
+                  className={`w-10 h-6 rounded-full transition-colors shrink-0 relative disabled:opacity-50 ${c.enabled ? "bg-[#C9A84C]" : "bg-[#D0D0D0]"}`}
+                >
+                  <span className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow transition-all ${c.enabled ? "left-4" : "left-0.5"}`} />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
 
 type VisitorEntry = { vkUserId: string; userName: string; visitedAt: string };
 type VisitorsData = { totalUnique: number; todayUnique: number; recent: VisitorEntry[] };
@@ -179,6 +265,9 @@ export function AdminScreen({ lots, onEditLot, onNewLot, onUpdateStatus, onStopL
         {showVisitors && visitors && (
           <VisitorsModal data={visitors} onClose={() => setShowVisitors(false)} />
         )}
+
+        {/* Notifications */}
+        <NotificationsPanel adminId={adminId} />
 
         {/* Export */}
         <button

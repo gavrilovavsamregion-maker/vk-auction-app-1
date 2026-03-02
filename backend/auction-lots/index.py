@@ -6,8 +6,10 @@ GET /?id=1&userId=xxx — один лот + myAutoBid для данного по
 """
 import json
 import os
+import urllib.request
+import urllib.parse
 import psycopg2
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 
 SCHEMA = "t_p68201414_vk_auction_app_1"
 
@@ -20,6 +22,71 @@ CORS = {
 
 def get_conn():
     return psycopg2.connect(os.environ["DATABASE_URL"])
+
+
+def send_vk_notification(user_id: str, message: str):
+    raw = str(user_id).strip()
+    if raw.startswith("id") and raw[2:].isdigit():
+        numeric_id = raw[2:]
+    elif raw.isdigit():
+        numeric_id = raw
+    else:
+        return
+    service_key = os.environ.get("VK_SERVICE_KEY", "")
+    if not service_key:
+        return
+    params = urllib.parse.urlencode({"user_ids": numeric_id, "message": message, "access_token": service_key, "v": "5.131"})
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f"https://api.vk.com/method/notifications.sendMessage?{params}"), timeout=5) as resp:
+            print(f"[notify-15min] VK: {json.loads(resp.read().decode())}")
+    except Exception as e:
+        print(f"[notify-15min] error: {e}")
+
+
+def notify_ending_soon(conn, cur):
+    """Уведомляем участников лотов которые заканчиваются через 10-15 минут (один раз на лот)."""
+    cur.execute(f"""
+        SELECT enabled FROM t_p68201414_vk_auction_app_1.notification_config WHERE key = 'ending_15min'
+    """)
+    row = cur.fetchone()
+    if not row or not row[0]:
+        return
+
+    now = datetime.now(timezone.utc)
+    window_end = now + timedelta(minutes=15)
+    window_start = now + timedelta(minutes=10)
+
+    cur.execute(f"""
+        SELECT id, title FROM {SCHEMA}.lots
+        WHERE status = 'active'
+          AND notified_15min = false
+          AND ends_at BETWEEN '{window_start.isoformat()}' AND '{window_end.isoformat()}'
+    """)
+    lots_to_notify = cur.fetchall()
+
+    for lot_id, lot_title in lots_to_notify:
+        cur.execute(f"""
+            SELECT DISTINCT b.user_id
+            FROM {SCHEMA}.bids b
+            JOIN {SCHEMA}.notification_settings ns ON ns.user_id = b.user_id
+            WHERE b.lot_id = {lot_id} AND ns.allowed = true
+        """)
+        participants = [r[0] for r in cur.fetchall()]
+
+        cur.execute(f"""
+            SELECT ends_at FROM {SCHEMA}.lots WHERE id = {lot_id}
+        """)
+        ends_at = cur.fetchone()[0]
+        minutes_left = int((ends_at - now).total_seconds() / 60)
+        message = f"⏰ До окончания аукциона «{lot_title}» осталось ~{minutes_left} мин! Успейте сделать ставку."
+
+        for uid in participants:
+            send_vk_notification(uid, message)
+
+        cur.execute(f"UPDATE {SCHEMA}.lots SET notified_15min = true WHERE id = {lot_id}")
+
+    if lots_to_notify:
+        conn.commit()
 
 
 def finish_expired_lots(cur):
@@ -92,6 +159,7 @@ def handler(event: dict, context) -> dict:
     finish_expired_lots(cur)
     activate_scheduled_lots(cur)
     conn.commit()
+    notify_ending_soon(conn, cur)
 
     if lot_id:
         cur.execute(f"""
