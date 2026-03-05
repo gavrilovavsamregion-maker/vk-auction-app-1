@@ -121,28 +121,30 @@ export function useAuction() {
   const notificationsDeclinedRef = useRef(false);
 
   async function requestNotificationPermission() {
-    console.log("[notifications] called, screenName:", vkUser.screenName, "requested:", notificationsRequested.current, "declined:", notificationsDeclinedRef.current);
     if (vkUser.screenName === "guest") return;
     if (notificationsRequested.current && !notificationsDeclinedRef.current) return;
     notificationsRequested.current = true;
     notificationsDeclinedRef.current = false;
     setNotificationsDeclined(false);
     try {
-      const res = await bridge.send("VKWebAppCallAPIMethod", {
-        method: "groups.getById",
-        params: { group_id: "joywood_store", v: "5.131" },
-      }) as Record<string, unknown>;
-      const groups = res.response as Array<Record<string, unknown>>;
-      const groupId = Number(groups?.[0]?.id ?? 0);
-      console.log("[notifications] groupId resolved:", groupId);
-      if (!groupId) { console.warn("[notifications] groupId is 0, aborting"); return; }
-      await bridge.send("VKWebAppAllowMessagesFromGroup", { group_id: groupId });
+      const params = new URLSearchParams(window.location.search);
+      const groupIdFromUrl = Number(params.get("vk_group_id") ?? 0);
+      let groupId = groupIdFromUrl;
+      if (!groupId) {
+        const res = await bridge.send("VKWebAppCallAPIMethod", {
+          method: "groups.getById",
+          params: { group_id: "joywood_store", v: "5.131" },
+        }) as Record<string, unknown>;
+        const groups = res.response as Array<Record<string, unknown>>;
+        groupId = Number(groups?.[0]?.id ?? 0);
+      }
+      if (!groupId) { notificationsRequested.current = false; return; }
+      await bridge.send("VKWebAppAllowMessagesFromGroup", { group_id: groupId, key: vkUser.id });
       await apiAllowNotifications(vkUser.id);
       setNotificationsDeclined(false);
     } catch (e: unknown) {
       const err = e as { error_data?: { error_reason?: string }; error_type?: string };
       const reason = err?.error_data?.error_reason ?? err?.error_type ?? "";
-      console.error("[notifications] VKWebAppAllowMessagesFromGroup failed:", JSON.stringify(e));
       if (reason === "User denied" || reason === "user_denied") {
         notificationsDeclinedRef.current = true;
         setNotificationsDeclined(true);
