@@ -134,7 +134,8 @@ export function useAuction() {
       }) as Record<string, unknown>;
       const groups = res.response as Array<Record<string, unknown>>;
       const groupId = Number(groups?.[0]?.id ?? 0);
-      if (!groupId) return;
+      console.log("[notifications] groupId resolved:", groupId);
+      if (!groupId) { console.warn("[notifications] groupId is 0, aborting"); return; }
       await bridge.send("VKWebAppAllowMessagesFromGroup", { group_id: groupId });
       await apiAllowNotifications(vkUser.id);
       setNotificationsDeclined(false);
