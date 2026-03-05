@@ -12,7 +12,8 @@ type VKScreen = "catalog" | "bids" | "profile" | "admin" | "admin-lot";
 export default function VKDesktopPage() {
   const {
     lots, loading, user, vkUser,
-    handleBid, handleSaveLot, handleUpdateStatus, handleStopLot,
+    handleBid, handleSaveLot, handleUpdateStatus, handleStopLot, handleDeleteLot, handleAutoBid,
+    resetNotificationsState,
   } = useAuction();
 
   const [screen, setScreen] = useState<VKScreen>("catalog");
@@ -98,7 +99,9 @@ export default function VKDesktopPage() {
                   onNewLot={() => { setEditingLotId("new"); setScreen("admin-lot"); }}
                   onUpdateStatus={handleUpdateStatus}
                   onStopLot={handleStopLot}
+                  onDeleteLot={handleDeleteLot}
                   adminId={user.numericId}
+                  onResetNotifications={resetNotificationsState}
                 />
               </div>
             )}
