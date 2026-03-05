@@ -113,8 +113,10 @@ export function useAuction() {
   }, [screen, activeLot?.id, activeLot?.status, activeLot?.endsAt?.getTime()]);
 
   async function requestNotificationPermission() {
-    if (notificationsRequested.current || vkUser.screenName === "guest") return;
+    if (vkUser.screenName === "guest") return;
+    if (notificationsRequested.current && !notificationsDeclined) return;
     notificationsRequested.current = true;
+    setNotificationsDeclined(false);
     try {
       const res = await bridge.send("VKWebAppCallAPIMethod", {
         method: "groups.getById",
@@ -126,8 +128,15 @@ export function useAuction() {
       await bridge.send("VKWebAppAllowMessagesFromGroup", { group_id: groupId });
       await apiAllowNotifications(vkUser.id);
       setNotificationsDeclined(false);
-    } catch {
-      setNotificationsDeclined(true);
+    } catch (e: unknown) {
+      const err = e as { error_data?: { error_reason?: string }; error_type?: string };
+      const reason = err?.error_data?.error_reason ?? err?.error_type ?? "";
+      // Declined only when user explicitly rejected, not on technical errors (unsupported env etc)
+      if (reason === "User denied" || reason === "user_denied") {
+        setNotificationsDeclined(true);
+      } else {
+        notificationsRequested.current = false;
+      }
     }
   }
 
