@@ -72,7 +72,7 @@ export function useAuction() {
     function getCatalogInterval() {
       const now = Date.now();
       const activeLots = lots.filter((l) => l.status === "active" && l.endsAt);
-      if (activeLots.length === 0) return 120_000;
+      if (activeLots.length === 0) return 300_000;
       const minLeft = activeLots
         .map((l) => l.endsAt!.getTime() - now)
         .reduce((min, ms) => Math.min(min, ms), Infinity);
@@ -102,8 +102,10 @@ export function useAuction() {
   useEffect(() => {
     if (screen !== "lot" || !activeLot) return;
 
+    if (activeLot.status !== "active") return;
+
     function getInterval() {
-      if (!activeLot || activeLot.status !== "active" || !activeLot.endsAt) return 5000;
+      if (!activeLot.endsAt) return 5000;
       const msLeft = activeLot.endsAt.getTime() - Date.now();
       return msLeft < 120_000 ? 1000 : 5000;
     }
