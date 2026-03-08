@@ -1,0 +1,26 @@
+{
+  "tests": [
+    {
+      "name": "Track visit",
+      "method": "POST",
+      "path": "/",
+      "body": {"vkUserId": "12345", "userName": "Тест Тестов"},
+      "expectedStatus": 200,
+      "bodyMatcher": "any"
+    },
+    {
+      "name": "Get stats forbidden",
+      "method": "GET",
+      "path": "/?requesterId=999",
+      "expectedStatus": 403,
+      "bodyMatcher": "any"
+    },
+    {
+      "name": "Get stats admin",
+      "method": "GET",
+      "path": "/?requesterId=32129039",
+      "expectedStatus": 200,
+      "bodyMatcher": "any"
+    }
+  ]
+}

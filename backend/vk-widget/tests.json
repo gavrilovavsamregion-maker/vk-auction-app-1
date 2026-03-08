@@ -1,0 +1,12 @@
+{
+  "tests": [
+    {
+      "name": "Get VK widget data",
+      "method": "GET",
+      "path": "/",
+      "expectedStatus": 200,
+      "expectedBody": {"type": "list"},
+      "bodyMatcher": "partial"
+    }
+  ]
+}

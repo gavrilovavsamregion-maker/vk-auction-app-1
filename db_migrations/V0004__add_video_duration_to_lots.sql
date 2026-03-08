@@ -1,0 +1,1 @@
+ALTER TABLE t_p68201414_vk_auction_app_1.lots ADD COLUMN video_duration integer NULL DEFAULT NULL;
