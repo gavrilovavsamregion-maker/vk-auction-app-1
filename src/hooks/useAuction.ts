@@ -71,8 +71,9 @@ export function useAuction() {
     let catalogTimer: ReturnType<typeof setTimeout>;
     function getCatalogInterval() {
       const now = Date.now();
-      const minLeft = lots
-        .filter((l) => l.status === "active" && l.endsAt)
+      const activeLots = lots.filter((l) => l.status === "active" && l.endsAt);
+      if (activeLots.length === 0) return 120_000;
+      const minLeft = activeLots
         .map((l) => l.endsAt!.getTime() - now)
         .reduce((min, ms) => Math.min(min, ms), Infinity);
       if (minLeft < 120_000) return 1000;
