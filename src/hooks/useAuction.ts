@@ -72,23 +72,29 @@ export function useAuction() {
     function getCatalogInterval() {
       const now = Date.now();
       const activeLots = lots.filter((l) => l.status === "active" && l.endsAt);
-      if (activeLots.length === 0) return 300_000;
-      const minLeft = activeLots
-        .map((l) => l.endsAt!.getTime() - now)
-        .reduce((min, ms) => Math.min(min, ms), Infinity);
-      if (minLeft < 120_000) return 1000;
-      if (minLeft < 600_000) return 5000;
-      return 15000;
+      if (activeLots.length > 0) {
+        const minLeft = activeLots
+          .map((l) => l.endsAt!.getTime() - now)
+          .reduce((min, ms) => Math.min(min, ms), Infinity);
+        if (minLeft < 120_000) return 1000;
+        if (minLeft < 600_000) return 5000;
+        return 15000;
+      }
+      const hasUpcoming = lots.some((l) => l.status === "upcoming");
+      if (hasUpcoming) return 60_000;
+      return null;
     }
     function scheduleCatalog() {
+      const interval = getCatalogInterval();
+      if (interval === null) return;
       catalogTimer = setTimeout(async () => {
         await loadLots();
         scheduleCatalog();
-      }, getCatalogInterval());
+      }, interval);
     }
     scheduleCatalog();
     return () => clearTimeout(catalogTimer);
-  }, [loadLots]);
+  }, [loadLots, lots]);
 
   async function loadLot(id: string) {
     try {
